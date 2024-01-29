@@ -165,6 +165,7 @@ def process_pdf(request):
 
     for d in pdf_ids:
         pdf_instance = uploadedPDFiles.objects.get(pk=d)
+        os.remove(pdf_instance)
         pdf_instance.delete()
 
     return response
