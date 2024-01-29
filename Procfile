@@ -1,1 +1,1 @@
-heroku buildpacks:set heroku/python -a atomic-softworks
+web: python manage.py runserver 0.0.0.0:$PORT
