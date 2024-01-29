@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload PDF Files</title>
+    <style>
+        /* Center the entire form vertically and horizontally */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        /* Add some styles to the drop-zone for better visibility */
+        .drop-zone {
+            border: 2px dashed #007BFF; /* Blue dashed border */
+            padding: 40px; /* Increased padding for larger boxes */
+            text-align: center;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            margin: 20px; /* Added margin for spacing */
+        }
+        .drag-over {
+            background-color: #EFEFEF;
+        }
+        /* Center the button under the drop zone */
+        button[type="submit"] {
+            display: block;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload PDF File</h1>
+    <form method="post" enctype="multipart/form-data" id="pdf-upload-form">
+        {% csrf_token %}
+        <div id="drop-zone" class="drop-zone">
+            <p>Drag your PDF file here or click to browse:</p>
+            <!-- Ensure the name attribute matches your Django form's field name -->
+            <input type="file" name="original_pdf" id="file-input" style="display:none;">
+        </div>
+        <div id="file-list" class="file-list"></div>
+        <button type="submit">Summarize PDF(s)</button>
+    </form>
+
+    {% if form.errors %}
+    <div class="error">
+        <h2>Error(s):</h2>
+        <ul>
+            {% for field, errors in form.errors.items %}
+                {% for error in errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const form = document.getElementById('pdf-upload-form');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+
+            const files = e.dataTransfer.files;
+            if (validateFiles(files)) {
+                fileInput.files = files; // Assign dropped files to the file input
+                updateFileList(); // Update the file list display
+            } else {
+                alert('Please select only PDF files.');
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            const files = fileInput.files;
+            if (validateFiles(files)) {
+                updateFileList(); // Update the file list display
+            } else {
+                alert('Please select only PDF files.');
+                fileInput.value = ''; // Clear the file input
+            }
+        });
+
+        function validateFiles(files) {
+            for (const file of files) {
+                if (file.type !== 'application/pdf') {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function updateFileList() {
+            fileList.innerHTML = '';
+            const files = fileInput.files;
+            for (const file of files) {
+                const listItem = document.createElement('div');
+                listItem.textContent = file.name;
+                fileList.appendChild(listItem);
+            }
+        }
+    </script>
+</body>
+</html>
