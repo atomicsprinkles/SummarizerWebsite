@@ -51,6 +51,7 @@ pytz
 regex
 six
 sqlparse
+sqlite3
 sympy
 typing_extensions
 tzdata
