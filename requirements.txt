@@ -39,7 +39,7 @@ Pillow
 pipenv
 platformdirs
 prompt-toolkit
-psycopg2
+psycopg2-binary
 pycryptodome
 PyGetWindow
 PyMuPDF
