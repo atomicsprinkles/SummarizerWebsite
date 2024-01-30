@@ -4,9 +4,3 @@ Django==3.1.7
 django-environ==0.4.5
 psycopg2-binary==2.8.6
 Werkzeug==1.0.1
-os
-math
-PyPDF2
-regex
-PyMuPDF
-zipfile
