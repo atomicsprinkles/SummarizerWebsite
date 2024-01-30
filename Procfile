@@ -1,1 +1,1 @@
-web gunicorn summarizerwebsite.wsgi:apllication --log-file -
+web: gunicorn summarizerwebsite.wsgi:application --log-file -
