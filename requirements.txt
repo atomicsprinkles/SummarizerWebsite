@@ -50,6 +50,7 @@ python-dateutil
 pytz
 regex
 six
+setuptools
 sqlparse
 sympy
 typing_extensions
