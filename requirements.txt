@@ -41,7 +41,6 @@ pipenv==2023.11.15
 platformdirs==4.1.0
 prompt-toolkit==3.0.43
 psycopg2==2.9.9
-py-cord @ git+https://github.com/Pycord-Development/pycord@80c2481b0aeb0173346e2b06ec3af28cb05a0527
 pycryptodome==3.18.0
 PyGetWindow==0.0.9
 PyMuPDF==1.22.3
