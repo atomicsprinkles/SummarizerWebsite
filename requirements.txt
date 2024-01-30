@@ -17,7 +17,7 @@ colorama
 DateTime
 distlib
 dj-database-url
-django
+Django==2.1
 filelock
 frozenlist
 gunicorn
