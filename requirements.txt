@@ -59,7 +59,7 @@ vine
 virtualenv
 wcwidth
 Werkzeug
-w
+wheel
 whitenoise
 yarl
 zope.interface
