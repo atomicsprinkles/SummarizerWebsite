@@ -17,9 +17,6 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-
-# Summarize/urls.py
-
 from django.contrib import admin
 from django.urls import include, path
 
