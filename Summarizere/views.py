@@ -158,7 +158,7 @@ def process_pdf(request):
         for item in data_to_add:
             text, x, y = item["text"], item["x"], item["y"]
             Page.insert_text((x, y), text, fontsize=9, color=(0, 0, 0))
-        temp_file_path = f'{name}.pdf'
+        temp_file_path = f'{name.group(1)}.pdf'
         doc.save(temp_file_path)
         temp_file_path.replace(" ", "")
         doc.close()
