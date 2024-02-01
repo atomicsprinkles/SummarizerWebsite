@@ -6,8 +6,9 @@
         /* Center the entire form vertically and horizontally */
         body {
             display: flex;
-            justify-content: center;
+            flex-direction: column; /* Change to column layout */
             align-items: center;
+            justify-content: center;
             height: 100vh;
             margin: 0;
         }
@@ -22,6 +23,13 @@
         }
         .drag-over {
             background-color: #EFEFEF;
+        }
+
+        .disclaimer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
         }
         /* Center the button under the drop zone */
         button[type="submit"] {
@@ -42,6 +50,17 @@
         <div id="file-list" class="file-list"></div>
         <button type="submit">Summarize PDF(s)</button>
     </form>
+    <div class="disclaimer">
+        <p>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam varius sollicitudin eros, 
+            a aliquet libero maximus nec. Sed convallis, lorem id vehicula ultricies, eros dolor 
+            interdum libero, sit amet porttitor mi augue sit amet mauris. Sed in dui ac lorem 
+            consequat aliquam. Integer maximus accumsan erat, vel tempus est congue sed. Fusce 
+            sed odio pharetra, fermentum nulla a, ultrices nunc. Maecenas eget lacinia odio. 
+            Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.
+        </p>
+    </div>
+
 
     {% if form.errors %}
     <div class="error">

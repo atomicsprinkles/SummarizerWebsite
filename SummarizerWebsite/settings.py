@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-+q@mwvwo)vg6tt=tt5x2=97gvi@r-vhwt#)bnjh46csrk#s8#l'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['tiny-bombolone-696673.netlify.app', 'localhost', '127.0.0.1']
 

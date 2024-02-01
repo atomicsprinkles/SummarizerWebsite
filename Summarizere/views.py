@@ -124,7 +124,7 @@ def process_pdf(request):
                 integers = [int(item) for item in re.findall(r'\d+', match)]
                 for integer in integers:
                     numshown.add(integer)
-        name = re.search(r"Patient Name:\s*([A-Za-z]+(?:\s[A-Za-z]+)*)", text)
+        name = re.search(r"^(.+)\r?\nGender:", text, re.MULTILINE)
         gender = re.search(r"Gender:\s*(Male|Female)", text)
         age = re.search(r"Age:\s*(\d+)\s*\(DOB:", text)
         date = re.search(r"Exam Date:\s*([A-Za-z]+ \d{1,2} \d{4} \d{2}:\d{2})", text)
@@ -158,7 +158,9 @@ def process_pdf(request):
         for item in data_to_add:
             text, x, y = item["text"], item["x"], item["y"]
             Page.insert_text((x, y), text, fontsize=9, color=(0, 0, 0))
-        temp_file_path = f'{name.group(1)}.pdf'
+        Page.insert_text((150, 700), "This is not an extension of BrainView (manufacturer) software-generated report.", fontsize=8, color=(0,0,0))
+        g = f"{name.group(1) if name else 'Not Available'}"
+        temp_file_path = f'{g}.pdf'
         doc.save(temp_file_path)
         temp_file_path.replace(" ", "")
         doc.close()
