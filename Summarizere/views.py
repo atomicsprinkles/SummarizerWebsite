@@ -112,23 +112,28 @@ def process_pdf(request):
         with open(pdf_instance.original_pdf.path, 'rb') as pdf_file:
             Reader = PyPDF2.PdfReader(pdf_file)
             Writer = PyPDF2.PdfWriter()
+            basereader = PyPDF2.PdfReader(open(baselinepath, "rb"))
+            Writer.add_page(basereader.pages[0])
             for i in range(len(Reader.pages)):
                 if i < 2:
                     b = Reader.pages[i]
                     Writer.add_page(b)
-            basereader = PyPDF2.PdfReader(open(baselinepath, "rb"))
-            Writer.add_page(basereader.pages[0])
             text += Reader.pages[1].extract_text()
             numfound = set(re.findall(pattern, text))
             for match in numfound:
                 integers = [int(item) for item in re.findall(r'\d+', match)]
                 for integer in integers:
                     numshown.add(integer)
+        name = re.search(r"Patient Name:\s*([A-Za-z]+(?:\s[A-Za-z]+)*)", text)
+        gender = re.search(r"Gender:\s*(Male|Female)", text)
+        age = re.search(r"Age:\s*(\d+)\s*\(DOB:", text)
+        date = re.search(r"Exam Date:\s*([A-Za-z]+ \d{1,2} \d{4} \d{2}:\d{2})", text)
+        org = re.search(r"Organization:\s*(.+)", text)
         pdfbytes = io.BytesIO()
         Writer.write(pdfbytes)
         pdfbytes.seek(0)
         doc = fitz.open("pdf", pdfbytes)
-        Page = doc[2]
+        Page = doc[0]
         texts_to_add = [
             {"text": f"{math.ceil(len(numshown.intersection(AnxietySet)) / len(AnxietySet) * 100)}%", "x": 290, "y": 210},
             {"text": f"{math.ceil(len(numshown.intersection(ExecFuncSet)) / len(ExecFuncSet) * 100)}%", "x": 420, "y": 260},
@@ -139,12 +144,23 @@ def process_pdf(request):
             {"text": f"{math.ceil(len(numshown.intersection(LangSet)) / len(LangSet) * 100)}%", "x": 110, "y": 400},
             {"text": f"{math.ceil(len(numshown.intersection(SalienceSet)) / len(SalienceSet) * 100)}%", "x": 160, "y": 260},
         ]
+        data_to_add = [
+            {"text": f"Patient Name: {name.group(1) if name else 'Not Available'}", "x": 60, "y": 120},
+            {"text": f"Gender: {gender.group(1) if gender else 'Not Available'}", "x": 60, "y": 130},
+            {"text": f"Age: {age.group(1) if age else 'Not Available'}", "x": 60, "y": 140},
+            {"text": f"Exam Date: {date.group(1) if date else 'Not Available'}", "x": 430, "y": 130},
+            {"text": f"Organization: {org.group(1) if org else 'Not Available'}", "x": 430, "y": 140},
+        ]
+
         for item in texts_to_add:
             text, x, y = item['text'], item['x'], item['y']
             Page.insert_text((x, y), text, fontsize=14, color=(0, 0, 0))
-
-        temp_file_path = 'temp_modified_pdf.pdf'
+        for item in data_to_add:
+            text, x, y = item["text"], item["x"], item["y"]
+            Page.insert_text((x, y), text, fontsize=9, color=(0, 0, 0))
+        temp_file_path = f'{name}.pdf'
         doc.save(temp_file_path)
+        temp_file_path.replace(" ", "")
         doc.close()
 
         processedfiles.append(temp_file_path)
