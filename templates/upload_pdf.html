@@ -95,7 +95,13 @@
 
             const files = e.dataTransfer.files;
             if (validateFiles(files)) {
-                fileInput.files = files; // Assign dropped files to the file input
+                // Create a new DataTransfer object and add the files to it
+                const dataTransfer = new DataTransfer();
+                for (const file of files) {
+                    dataTransfer.items.add(file);
+                }
+                // Set the file input's files to the DataTransfer's files
+                fileInput.files = dataTransfer.files;
                 updateFileList(); // Update the file list display
             } else {
                 alert('Please select only PDF files.');

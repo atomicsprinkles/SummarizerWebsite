@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from django.contrib.auth.models import User
+from django.http import FileResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
@@ -18,6 +18,7 @@ import re
 import fitz
 import io
 import zipfile
+import tempfile
 
 hardcoded_passkey = "123abc"
 
@@ -108,7 +109,7 @@ def process_pdf(request):
     for pdf_id in pdf_ids:
         pdf_instance = uploadedPDFiles.objects.get(pk=pdf_id)
         if pdf_instance.processed_pdf:
-            return render(request, 'result.html', {'pdf_instance': pdf_instance})
+            continue
         with open(pdf_instance.original_pdf.path, 'rb') as pdf_file:
             Reader = PyPDF2.PdfReader(pdf_file)
             Writer = PyPDF2.PdfWriter()
@@ -124,11 +125,17 @@ def process_pdf(request):
                 integers = [int(item) for item in re.findall(r'\d+', match)]
                 for integer in integers:
                     numshown.add(integer)
-        name = re.search(r"^(.+)\r?\nGender:", text, re.MULTILINE)
+
+        name_line = re.search(r"^(.+?)\r?\nGender:", text, re.MULTILINE)
+        name_line = name_line.group(1)
+        name_line = re.sub(r"Weight:\s*\d+\s*lbs\s*Height:\s*\d+\s*ft\s*\d+\s*in", "", name_line)
+        name = name_line.strip()
         gender = re.search(r"Gender:\s*(Male|Female)", text)
         age = re.search(r"Age:\s*(\d+)\s*\(DOB:", text)
         date = re.search(r"Exam Date:\s*([A-Za-z]+ \d{1,2} \d{4} \d{2}:\d{2})", text)
-        org = re.search(r"Organization:\s*(.+)", text)
+        orge = re.search(r"Exam Date:[^\n]*\n(.*?)(?:\n|$)", text, re.DOTALL)
+        orge = orge.group(1)
+        print(orge)
         pdfbytes = io.BytesIO()
         Writer.write(pdfbytes)
         pdfbytes.seek(0)
@@ -145,11 +152,11 @@ def process_pdf(request):
             {"text": f"{math.ceil(len(numshown.intersection(SalienceSet)) / len(SalienceSet) * 100)}%", "x": 160, "y": 260},
         ]
         data_to_add = [
-            {"text": f"Patient Name: {name.group(1) if name else 'Not Available'}", "x": 60, "y": 120},
+            {"text": f"Patient Name: {name if name else 'Not Available'}", "x": 60, "y": 120},
             {"text": f"Gender: {gender.group(1) if gender else 'Not Available'}", "x": 60, "y": 130},
             {"text": f"Age: {age.group(1) if age else 'Not Available'}", "x": 60, "y": 140},
             {"text": f"Exam Date: {date.group(1) if date else 'Not Available'}", "x": 430, "y": 130},
-            {"text": f"Organization: {org.group(1) if org else 'Not Available'}", "x": 430, "y": 140},
+            {"text": f"Organization: {orge if orge else 'Not Available'}", "x": 420, "y": 140},
         ]
 
         for item in texts_to_add:
@@ -159,8 +166,8 @@ def process_pdf(request):
             text, x, y = item["text"], item["x"], item["y"]
             Page.insert_text((x, y), text, fontsize=9, color=(0, 0, 0))
         Page.insert_text((150, 700), "This is not an extension of BrainView (manufacturer) software-generated report.", fontsize=8, color=(0,0,0))
-        g = f"{name.group(1) if name else 'Not Available'}"
-        temp_file_path = f'{g}.pdf'
+        g = f"{name if name else 'Not Available'}"
+        temp_file_path = f'{g.replace(" ", "")}.pdf'
         doc.save(temp_file_path)
         temp_file_path.replace(" ", "")
         doc.close()
