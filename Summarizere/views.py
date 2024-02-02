@@ -192,5 +192,7 @@ def process_pdf(request):
         pdf_instance = uploadedPDFiles.objects.get(pk=d)
         os.remove(pdf_instance.original_pdf.path)
         pdf_instance.delete()
+    for file_path in processedfiles:
+        os.remove(file_path)
 
     return response
