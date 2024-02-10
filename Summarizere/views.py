@@ -101,7 +101,11 @@ def process_pdf(request):
     AddicRewardSet = {13, 24, 35, 32, 34, 44, 45, 46, 47}
     LangSet = {22, 39, 40, 41, 42, 44, 45}
     text = ""
-    pattern = r"BA (?:Right|Left) ([\d, \(\)]+)"
+    #pattern = r"BA (?:Left|Right) (\d+(?:,\s*\d+)*)"
+    pattern = r"\b\d{1,2}\b"
+    #pattern2 = r'BA (?:Left|Right) [\d\s,]+?\(([^)]+)\)'
+             #r"BA (?:Left|Right) (\d+)(?:, (\d+))?(?: \( (\d+), (\d+) \))?"
+
     numshown = set()
     pdf_ids = request.session.get("pdf_ids", [])
     processedfiles = []
@@ -111,20 +115,38 @@ def process_pdf(request):
         if pdf_instance.processed_pdf:
             continue
         with open(pdf_instance.original_pdf.path, 'rb') as pdf_file:
-            Reader = PyPDF2.PdfReader(pdf_file)
-            Writer = PyPDF2.PdfWriter()
-            basereader = PyPDF2.PdfReader(open(baselinepath, "rb"))
-            Writer.add_page(basereader.pages[0])
-            for i in range(len(Reader.pages)):
-                if i < 2:
-                    b = Reader.pages[i]
-                    Writer.add_page(b)
-            text += Reader.pages[1].extract_text()
-            numfound = set(re.findall(pattern, text))
-            for match in numfound:
-                integers = [int(item) for item in re.findall(r'\d+', match)]
-                for integer in integers:
-                    numshown.add(integer)
+            reader = PyPDF2.PdfReader(pdf_file)
+            writer = PyPDF2.PdfWriter()
+            baseline_reader = PyPDF2.PdfReader(open(baselinepath, "rb"))
+            writer.add_page(baseline_reader.pages[0])
+            
+            for i in range(min(len(reader.pages), 2)):
+                writer.add_page(reader.pages[i])
+            
+            text = reader.pages[1].extract_text()
+            number_text = re.findall(pattern, text)
+            numbers_needed = [num for num in number_text if '-' not in num and len(num) <= 2]
+
+            for num in numbers_needed:
+                exclusion_patterns = [
+                    rf"\bAge: {num}\b", rf"\bBMI: {num}\b", 
+                    rf"\b{num} %\b", rf"\b{num} min\b", rf"\b{num} sec\b",
+                    rf"\b{num} lbs\b", rf"Height: \d+ ft {num} in\b",
+                    rf"DOB: [\w\s]+ {num}", rf"Patient Code: {num}\b",
+                    rf"Exam Date: [\w\s\d:]+ {num}\b"
+                ]
+                if any(re.search(pattern, text) for pattern in exclusion_patterns):
+                    continue
+
+                ba_pattern = r"BA (?:Left|Right )?([\d, ]+)(?:\(([\d, ]+)\))?"
+               #ba_pattern = r"BA (?:Left|Right )?([\d, ]+)(?:\(([\d, ]+)\))?"
+
+                ba_matches = re.findall(ba_pattern, text)
+                for ba_num_group in ba_matches:
+                    for group in ba_num_group:
+                        for ba_num in filter(None, re.split('[, ]+', group.strip())):
+                            numshown.add(int(ba_num))
+                print(numshown)
 
         name_line = re.search(r"^(.+?)\r?\nGender:", text, re.MULTILINE)
         name_line = name_line.group(1)
@@ -135,22 +157,28 @@ def process_pdf(request):
         date = re.search(r"Exam Date:\s*([A-Za-z]+ \d{1,2} \d{4} \d{2}:\d{2})", text)
         orge = re.search(r"Exam Date:[^\n]*\n(.*?)(?:\n|$)", text, re.DOTALL)
         orge = orge.group(1)
-        print(orge)
+
         pdfbytes = io.BytesIO()
-        Writer.write(pdfbytes)
+        writer.write(pdfbytes)
         pdfbytes.seek(0)
         doc = fitz.open("pdf", pdfbytes)
         Page = doc[0]
-        texts_to_add = [
-            {"text": f"{math.ceil(len(numshown.intersection(AnxietySet)) / len(AnxietySet) * 100)}%", "x": 290, "y": 210},
-            {"text": f"{math.ceil(len(numshown.intersection(ExecFuncSet)) / len(ExecFuncSet) * 100)}%", "x": 420, "y": 260},
-            {"text": f"{math.ceil(len(numshown.intersection(AttentionSet)) / len(AttentionSet) * 100)}%", "x": 475, "y": 400},
-            {"text": f"{math.ceil(len(numshown.intersection(MoodSet)) / len(MoodSet) * 100)}%", "x": 420, "y": 525},
-            {"text": f"{math.ceil(len(numshown.intersection(DefauModeSet)) / len(DefauModeSet) * 100)}%", "x": 290, "y": 580},
-            {"text": f"{math.ceil(len(numshown.intersection(AddicRewardSet)) / len(AddicRewardSet) * 100)}%", "x": 160, "y": 530},
-            {"text": f"{math.ceil(len(numshown.intersection(LangSet)) / len(LangSet) * 100)}%", "x": 110, "y": 400},
-            {"text": f"{math.ceil(len(numshown.intersection(SalienceSet)) / len(SalienceSet) * 100)}%", "x": 160, "y": 260},
-        ]
+        
+        sets = [
+            (AnxietySet, 290, 210),
+            (ExecFuncSet, 420, 260),
+            (AttentionSet, 475, 400),
+            (MoodSet, 420, 525),
+            (DefauModeSet, 290, 580),
+            (AddicRewardSet, 160, 530),
+            (LangSet, 110, 400),
+            (SalienceSet, 160, 260)
+        ]   
+
+        def calculate_match_percentage(numshown, set_name):
+            return round(len(numshown.intersection(set_name)) / len(set_name) * 100)
+        
+        texts_to_add = [{"text": f"{calculate_match_percentage(numshown, set_name)}%", "x": x, "y": y} for set_name, x, y in sets]
         data_to_add = [
             {"text": f"Patient Name: {name if name else 'Not Available'}", "x": 60, "y": 120},
             {"text": f"Gender: {gender.group(1) if gender else 'Not Available'}", "x": 60, "y": 130},
