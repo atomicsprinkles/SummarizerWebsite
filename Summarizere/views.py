@@ -92,7 +92,7 @@ def upload_pdf(request):
 
 def process_pdf(request):
     baselinepath = finders.find('Summarizer.pdf')
-    AnxietySet = {4, 6, 7, 10, 13, 21}
+    AnxietySet = {4, 6, 7, 10, 13, 21, "amygdala"}
     SalienceSet = {8, 9, 10, 13, 22, 23, 24, 25, 29, 30, 31, 32, 33}
     ExecFuncSet = {7, 8, 9, 10, 11, 19, 22, 37, 40, 46}
     AttentionSet = {6, 7, 8, 9, 19, 39, 40}
@@ -100,11 +100,13 @@ def process_pdf(request):
     DefauModeSet = {2, 7, 10, 11, 19, 29, 30, 31, 35, 39, 40}
     AddicRewardSet = {13, 24, 35, 32, 34, 44, 45, 46, 47}
     LangSet = {22, 39, 40, 41, 42, 44, 45}
+
     text = ""
     #pattern = r"BA (?:Left|Right) (\d+(?:,\s*\d+)*)"
-    pattern = r"\b\d{1,2}\b"
-    #pattern2 = r'BA (?:Left|Right) [\d\s,]+?\(([^)]+)\)'
-             #r"BA (?:Left|Right) (\d+)(?:, (\d+))?(?: \( (\d+), (\d+) \))?"
+
+    pattern = r"BA (?:Left |Right )?(\d+(?:, \d+)*)(?: \((\d+(?:, \d+)*)\))?"
+    #pattern = r"BA (?:Left|Right )?([(\d+,)]+\s?(?:\(\d+,\s?\d+\))?(?:, \d+)*)"
+
 
     numshown = set()
     pdf_ids = request.session.get("pdf_ids", [])
@@ -124,30 +126,19 @@ def process_pdf(request):
                 writer.add_page(reader.pages[i])
             
             text = reader.pages[1].extract_text()
-            number_text = re.findall(pattern, text)
-            numbers_needed = [num for num in number_text if '-' not in num and len(num) <= 2]
-
-            for num in numbers_needed:
-                exclusion_patterns = [
-                    rf"\bAge: {num}\b", rf"\bBMI: {num}\b", 
-                    rf"\b{num} %\b", rf"\b{num} min\b", rf"\b{num} sec\b",
-                    rf"\b{num} lbs\b", rf"Height: \d+ ft {num} in\b",
-                    rf"DOB: [\w\s]+ {num}", rf"Patient Code: {num}\b",
-                    rf"Exam Date: [\w\s\d:]+ {num}\b"
-                ]
-                if any(re.search(pattern, text) for pattern in exclusion_patterns):
-                    continue
-
-                ba_pattern = r"BA (?:Left|Right )?([\d, ]+)(?:\(([\d, ]+)\))?"
-               #ba_pattern = r"BA (?:Left|Right )?([\d, ]+)(?:\(([\d, ]+)\))?"
-
-                ba_matches = re.findall(ba_pattern, text)
-                for ba_num_group in ba_matches:
-                    for group in ba_num_group:
-                        for ba_num in filter(None, re.split('[, ]+', group.strip())):
-                            numshown.add(int(ba_num))
-                print(numshown)
-
+            txet = reader.pages[1].extract_text()
+            if "Eyes Closed: Brain Map Source" in text:
+                index = txet.index("Eyes Closed: Brain Map Source") + len("Eyes Closed: Brain Map Source")
+                txet = txet[index:]
+            number_text = re.findall(pattern, txet)
+            numshown = set()
+            for primary, associated in number_text:
+                primary_numbers = primary.split(',')
+                associated_numbers = associated.split(',') if associated else []
+                for number in primary_numbers + associated_numbers:
+                    if number.strip():
+                        numshown.add(int(number.strip()))
+            print(txet)
         name_line = re.search(r"^(.+?)\r?\nGender:", text, re.MULTILINE)
         name_line = name_line.group(1)
         name_line = re.sub(r"Weight:\s*\d+\s*lbs\s*Height:\s*\d+\s*ft\s*\d+\s*in", "", name_line)
@@ -176,7 +167,7 @@ def process_pdf(request):
         ]   
 
         def calculate_match_percentage(numshown, set_name):
-            return round(len(numshown.intersection(set_name)) / len(set_name) * 100)
+            return 100 - round(len(numshown.intersection(set_name)) / len(set_name) * 100)
         
         texts_to_add = [{"text": f"{calculate_match_percentage(numshown, set_name)}%", "x": x, "y": y} for set_name, x, y in sets]
         data_to_add = [
@@ -222,5 +213,6 @@ def process_pdf(request):
         pdf_instance.delete()
     for file_path in processedfiles:
         os.remove(file_path)
+
 
     return response
