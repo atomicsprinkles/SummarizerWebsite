@@ -72,9 +72,9 @@ def register(request):
 def upload_pdf(request):
     if not request.session.get('logged_in'):
         return redirect('login')
-    
+
     if request.method == 'POST':
-        files = request.FILES.getlist('original_pdf')
+        files = request.FILES.getlist('original_files')
         pdf_ids = []
         for f in files:
             form = PDFUploadForm(request.POST, {'original_pdf': f})
@@ -88,8 +88,7 @@ def upload_pdf(request):
 
     return render(request, "upload_pdf.html", {'form': form})
 
-
-
+@csrf_exempt
 def process_pdf(request):
     baselinepath = finders.find('Summarizer.pdf')
     AnxietySet = {4, 6, 7, 10, 13, 21, "amygdala"}
@@ -101,14 +100,7 @@ def process_pdf(request):
     AddicRewardSet = {13, 24, 35, 32, 34, 44, 45, 46, 47}
     LangSet = {22, 39, 40, 41, 42, 44, 45}
 
-    text = ""
-    #pattern = r"BA (?:Left|Right) (\d+(?:,\s*\d+)*)"
-
     pattern = r"BA (?:Left |Right )?(\d+(?:, \d+)*)(?: \((\d+(?:, \d+)*)\))?"
-    #pattern = r"BA (?:Left|Right )?([(\d+,)]+\s?(?:\(\d+,\s?\d+\))?(?:, \d+)*)"
-
-
-    numshown = set()
     pdf_ids = request.session.get("pdf_ids", [])
     processedfiles = []
 
@@ -121,10 +113,10 @@ def process_pdf(request):
             writer = PyPDF2.PdfWriter()
             baseline_reader = PyPDF2.PdfReader(open(baselinepath, "rb"))
             writer.add_page(baseline_reader.pages[0])
-            
+
             for i in range(min(len(reader.pages), 2)):
                 writer.add_page(reader.pages[i])
-            
+
             text = reader.pages[1].extract_text()
             txet = reader.pages[1].extract_text()
             if "Eyes Closed: Brain Map Source" in text:
@@ -138,60 +130,60 @@ def process_pdf(request):
                 for number in primary_numbers + associated_numbers:
                     if number.strip():
                         numshown.add(int(number.strip()))
-            print(txet)
-        name_line = re.search(r"^(.+?)\r?\nGender:", text, re.MULTILINE)
-        name_line = name_line.group(1)
-        name_line = re.sub(r"Weight:\s*\d+\s*lbs\s*Height:\s*\d+\s*ft\s*\d+\s*in", "", name_line)
-        name = name_line.strip()
-        gender = re.search(r"Gender:\s*(Male|Female)", text)
-        age = re.search(r"Age:\s*(\d+)\s*\(DOB:", text)
-        date = re.search(r"Exam Date:\s*([A-Za-z]+ \d{1,2} \d{4} \d{2}:\d{2})", text)
-        orge = re.search(r"Exam Date:[^\n]*\n(.*?)(?:\n|$)", text, re.DOTALL)
-        orge = orge.group(1)
 
-        pdfbytes = io.BytesIO()
-        writer.write(pdfbytes)
-        pdfbytes.seek(0)
-        doc = fitz.open("pdf", pdfbytes)
-        Page = doc[0]
-        
-        sets = [
-            (AnxietySet, 290, 210),
-            (ExecFuncSet, 420, 260),
-            (AttentionSet, 475, 400),
-            (MoodSet, 420, 525),
-            (DefauModeSet, 290, 580),
-            (AddicRewardSet, 160, 530),
-            (LangSet, 110, 400),
-            (SalienceSet, 160, 260)
-        ]   
+            name_line = re.search(r"^(.+?)\r?\nGender:", text, re.MULTILINE)
+            name_line = name_line.group(1)
+            name_line = re.sub(r"Weight:\s*\d+\s*lbs\s*Height:\s*\d+\s*ft\s*\d+\s*in", "", name_line)
+            name = name_line.strip()
+            gender = re.search(r"Gender:\s*(Male|Female)", text)
+            age = re.search(r"Age:\s*(\d+)\s*\(DOB:", text)
+            date = re.search(r"Exam Date:\s*([A-Za-z]+ \d{1,2} \d{4} \d{2}:\d{2})", text)
+            orge = re.search(r"Exam Date:[^\n]*\n(.*?)(?:\n|$)", text, re.DOTALL)
+            orge = orge.group(1)
 
-        def calculate_match_percentage(numshown, set_name):
-            return 100 - round(len(numshown.intersection(set_name)) / len(set_name) * 100)
-        
-        texts_to_add = [{"text": f"{calculate_match_percentage(numshown, set_name)}%", "x": x, "y": y} for set_name, x, y in sets]
-        data_to_add = [
-            {"text": f"Patient Name: {name if name else 'Not Available'}", "x": 60, "y": 120},
-            {"text": f"Gender: {gender.group(1) if gender else 'Not Available'}", "x": 60, "y": 130},
-            {"text": f"Age: {age.group(1) if age else 'Not Available'}", "x": 60, "y": 140},
-            {"text": f"Exam Date: {date.group(1) if date else 'Not Available'}", "x": 430, "y": 130},
-            {"text": f"Organization: {orge if orge else 'Not Available'}", "x": 420, "y": 140},
-        ]
+            pdfbytes = io.BytesIO()
+            writer.write(pdfbytes)
+            pdfbytes.seek(0)
+            doc = fitz.open("pdf", pdfbytes)
+            Page = doc[0]
 
-        for item in texts_to_add:
-            text, x, y = item['text'], item['x'], item['y']
-            Page.insert_text((x, y), text, fontsize=14, color=(0, 0, 0))
-        for item in data_to_add:
-            text, x, y = item["text"], item["x"], item["y"]
-            Page.insert_text((x, y), text, fontsize=9, color=(0, 0, 0))
-        Page.insert_text((150, 700), "This is not an extension of BrainView (manufacturer) software-generated report.", fontsize=8, color=(0,0,0))
-        g = f"{name if name else 'Not Available'}"
-        temp_file_path = f'{g.replace(" ", "")}.pdf'
-        doc.save(temp_file_path)
-        temp_file_path.replace(" ", "")
-        doc.close()
+            sets = [
+                (AnxietySet, 290, 210),
+                (ExecFuncSet, 420, 260),
+                (AttentionSet, 475, 400),
+                (MoodSet, 420, 525),
+                (DefauModeSet, 290, 580),
+                (AddicRewardSet, 160, 530),
+                (LangSet, 110, 400),
+                (SalienceSet, 160, 260)
+            ]
 
-        processedfiles.append(temp_file_path)
+            def calculate_match_percentage(numshown, set_name):
+                return 100 - round(len(numshown.intersection(set_name)) / len(set_name) * 100)
+
+            texts_to_add = [{"text": f"{calculate_match_percentage(numshown, set_name)}%", "x": x, "y": y} for set_name, x, y in sets]
+            data_to_add = [
+                {"text": f"Patient Name: {name if name else 'Not Available'}", "x": 60, "y": 120},
+                {"text": f"Gender: {gender.group(1) if gender else 'Not Available'}", "x": 60, "y": 130},
+                {"text": f"Age: {age.group(1) if age else 'Not Available'}", "x": 60, "y": 140},
+                {"text": f"Exam Date: {date.group(1) if date else 'Not Available'}", "x": 430, "y": 130},
+                {"text": f"Organization: {orge if orge else 'Not Available'}", "x": 420, "y": 140},
+            ]
+
+            for item in texts_to_add:
+                text, x, y = item['text'], item['x'], item['y']
+                Page.insert_text((x, y), text, fontsize=14, color=(0, 0, 0))
+            for item in data_to_add:
+                text, x, y = item["text"], item["x"], item["y"]
+                Page.insert_text((x, y), text, fontsize=9, color=(0, 0, 0))
+            Page.insert_text((150, 700), "This is not an extension of BrainView (manufacturer) software-generated report.", fontsize=8, color=(0,0,0))
+            g = f"{name if name else 'Not Available'}"
+            temp_file_path = f'{g.replace(" ", "")}.pdf'
+            doc.save(temp_file_path)
+            temp_file_path.replace(" ", "")
+            doc.close()
+
+            processedfiles.append(temp_file_path)
 
     zip_filename = "processed_pdf(s).zip"
 
@@ -203,7 +195,7 @@ def process_pdf(request):
         buffer.write(f.read())
 
     response = HttpResponse(buffer.getvalue(), content_type='application/zip')
-    response['Content-Dispositon'] = f"attachment; filename='{zip_filename}'"
+    response['Content-Disposition'] = f"attachment; filename={zip_filename}"
 
     os.remove(zip_filename)
 
@@ -213,6 +205,5 @@ def process_pdf(request):
         pdf_instance.delete()
     for file_path in processedfiles:
         os.remove(file_path)
-
 
     return response

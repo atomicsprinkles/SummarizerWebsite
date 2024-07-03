@@ -1,66 +1,78 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Upload PDF Files</title>
+    <meta charset="UTF-8">
+    <title>Upload Files</title>
     <style>
-        /* Center the entire form vertically and horizontally */
         body {
             display: flex;
-            flex-direction: column; /* Change to column layout */
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
             margin: 0;
+            font-family: Arial, sans-serif;
         }
-        /* Add some styles to the drop-zone for better visibility */
         .drop-zone {
-            border: 2px dashed #007BFF; /* Blue dashed border */
-            padding: 40px; /* Increased padding for larger boxes */
+            border: 2px dashed #007BFF;
+            padding: 40px;
             text-align: center;
             cursor: pointer;
             background-color: #f0f0f0;
-            margin: 20px; /* Added margin for spacing */
+            margin: 20px;
+            width: 300px;
         }
         .drag-over {
             background-color: #EFEFEF;
         }
-
         .disclaimer {
             margin-top: 30px;
             text-align: center;
             font-size: 0.8em;
             color: #666;
+            max-width: 600px;
         }
-        /* Center the button under the drop zone */
-        button[type="submit"] {
+        button[type="submit"], .clear-button {
             display: block;
             margin: 20px auto;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .clear-button {
+            background-color: #FF0000;
+            color: #FFFFFF;
+            border: none;
+        }
+        .file-list {
+            margin: 20px;
+            max-width: 300px;
+            text-align: left;
         }
     </style>
 </head>
 <body>
-    <h1>Upload PDF File</h1>
-    <form method="post" enctype="multipart/form-data" id="pdf-upload-form">
+    <h1>Upload Files</h1>
+    <form method="post" enctype="multipart/form-data" id="file-upload-form">
         {% csrf_token %}
         <div id="drop-zone" class="drop-zone">
-            <p>Drag your PDF file here or click to browse:</p>
-            <!-- Ensure the name attribute matches your Django form's field name -->
-            <input type="file" name="original_pdf" id="file-input" style="display:none;">
+            <p>Drag your file(s) or folder(s) here or click to browse:</p>
+            <input type="file" name="original_files" id="file-input" style="display:none;" webkitdirectory multiple>
         </div>
         <div id="file-list" class="file-list"></div>
-        <button type="submit">Summarize PDF(s)</button>
+        <button type="submit">Upload Files</button>
+        <button type="button" class="clear-button" id="clear-button">Clear Queue</button>
     </form>
     <div class="disclaimer">
         <p>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam varius sollicitudin eros, 
-            a aliquet libero maximus nec. Sed convallis, lorem id vehicula ultricies, eros dolor 
-            interdum libero, sit amet porttitor mi augue sit amet mauris. Sed in dui ac lorem 
-            consequat aliquam. Integer maximus accumsan erat, vel tempus est congue sed. Fusce 
-            sed odio pharetra, fermentum nulla a, ultrices nunc. Maecenas eget lacinia odio. 
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam varius sollicitudin eros,
+            a aliquet libero maximus nec. Sed convallis, lorem id vehicula ultricies, eros dolor
+            interdum libero, sit amet porttitor mi augue sit amet mauris. Sed in dui ac lorem
+            consequat aliquam. Integer maximus accumsan erat, vel tempus est congue sed. Fusce
+            sed odio pharetra, fermentum nulla a, ultrices nunc. Maecenas eget lacinia odio.
             Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.
         </p>
     </div>
-
 
     {% if form.errors %}
     <div class="error">
@@ -78,7 +90,7 @@
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const fileList = document.getElementById('file-list');
-        const form = document.getElementById('pdf-upload-form');
+        const clearButton = document.getElementById('clear-button');
 
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -89,42 +101,50 @@
             dropZone.classList.remove('drag-over');
         });
 
-        dropZone.addEventListener('drop', (e) => {
+        dropZone.addEventListener('drop', async (e) => {
             e.preventDefault();
             dropZone.classList.remove('drag-over');
-
-            const files = e.dataTransfer.files;
-            if (validateFiles(files)) {
-                // Create a new DataTransfer object and add the files to it
-                const dataTransfer = new DataTransfer();
-                for (const file of files) {
-                    dataTransfer.items.add(file);
-                }
-                // Set the file input's files to the DataTransfer's files
-                fileInput.files = dataTransfer.files;
-                updateFileList(); // Update the file list display
-            } else {
-                alert('Please select only PDF files.');
-            }
+            const files = e.dataTransfer.items ? await getFilesFromItems(e.dataTransfer.items) : Array.from(e.dataTransfer.files);
+            addFilesToQueue(files);
+            updateFileList();
         });
 
-        fileInput.addEventListener('change', () => {
-            const files = fileInput.files;
-            if (validateFiles(files)) {
-                updateFileList(); // Update the file list display
-            } else {
-                alert('Please select only PDF files.');
-                fileInput.value = ''; // Clear the file input
-            }
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
         });
 
-        function validateFiles(files) {
+        fileInput.addEventListener('change', async () => {
+            const files = Array.from(fileInput.files);
+            addFilesToQueue(files);
+            updateFileList();
+        });
+
+        clearButton.addEventListener('click', () => {
+            fileInput.value = '';
+            updateFileList();
+        });
+
+        function addFilesToQueue(files) {
+            const dataTransfer = new DataTransfer();
+            let invalidFiles = 0;
+
+            for (const file of fileInput.files) {
+                dataTransfer.items.add(file);
+            }
+
             for (const file of files) {
                 if (file.type !== 'application/pdf') {
-                    return false;
+                    invalidFiles++;
+                } else {
+                    dataTransfer.items.add(file);
                 }
             }
-            return true;
+
+            if (invalidFiles > 0) {
+                alert(`${invalidFiles} file(s) were not PDF and have been excluded.`);
+            }
+
+            fileInput.files = dataTransfer.files;
         }
 
         function updateFileList() {
@@ -135,6 +155,58 @@
                 listItem.textContent = file.name;
                 fileList.appendChild(listItem);
             }
+        }
+
+        async function getFilesFromItems(items) {
+            const files = [];
+            for (const item of items) {
+                if (item.kind === 'file') {
+                    const entry = item.webkitGetAsEntry();
+                    if (entry.isDirectory) {
+                        const dirFiles = await readDirectory(entry);
+                        files.push(...dirFiles);
+                    } else if (entry.isFile) {
+                        const file = await getFile(entry);
+                        files.push(file);
+                    }
+                }
+            }
+            return files;
+        }
+
+        function readDirectory(directory) {
+            return new Promise((resolve, reject) => {
+                const dirReader = directory.createReader();
+                const allFiles = [];
+                function readEntries() {
+                    dirReader.readEntries(async (entries) => {
+                        if (entries.length === 0) {
+                            resolve(allFiles);
+                        } else {
+                            const entryPromises = entries.map(async (entry) => {
+                                if (entry.isDirectory) {
+                                    const dirFiles = await readDirectory(entry);
+                                    allFiles.push(...dirFiles);
+                                } else if (entry.isFile) {
+                                    const file = await getFile(entry);
+                                    allFiles.push(file);
+                                }
+                            });
+                            await Promise.all(entryPromises);
+                            readEntries();
+                        }
+                    }, reject);
+                }
+                readEntries();
+            });
+        }
+
+        function getFile(fileEntry) {
+            return new Promise((resolve, reject) => {
+                fileEntry.file((file) => {
+                    resolve(file);
+                }, reject);
+            });
         }
     </script>
 </body>

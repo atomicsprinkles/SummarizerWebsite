@@ -11,5 +11,4 @@ urlpatterns = [
     path('signUp/', views.register, name='signUp'),
     path('summarizer/', views.upload_pdf, name="summarizer"),
     path('EEGProcessed/', views.process_pdf, name='process_pdf')
-
 ]
