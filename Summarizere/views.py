@@ -13,7 +13,7 @@ from .forms import PDFUploadForm
 
 import math
 import os
-import pypdf 
+import pypdf
 import re
 import fitz
 import io
