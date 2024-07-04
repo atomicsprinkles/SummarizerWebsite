@@ -13,7 +13,7 @@ from .forms import PDFUploadForm
 
 import math
 import os
-import PyPDF2
+import pypdf 
 import re
 import fitz
 import io
@@ -109,9 +109,9 @@ def process_pdf(request):
         if pdf_instance.processed_pdf:
             continue
         with open(pdf_instance.original_pdf.path, 'rb') as pdf_file:
-            reader = PyPDF2.PdfReader(pdf_file)
-            writer = PyPDF2.PdfWriter()
-            baseline_reader = PyPDF2.PdfReader(open(baselinepath, "rb"))
+            reader = pypdf.PdfReader(pdf_file)
+            writer = pypdf.PdfWriter()
+            baseline_reader = pypdf.PdfReader(open(baselinepath, "rb"))
             writer.add_page(baseline_reader.pages[0])
 
             for i in range(min(len(reader.pages), 2)):
