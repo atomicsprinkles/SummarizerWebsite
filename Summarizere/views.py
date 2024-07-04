@@ -11,14 +11,12 @@ from django.contrib.staticfiles import finders
 
 from .forms import PDFUploadForm
 
-import math
 import os
 import pypdf
 import re
 import fitz
 import io
 import zipfile
-import tempfile
 
 hardcoded_passkey = "123abc"
 
